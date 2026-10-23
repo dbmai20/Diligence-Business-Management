@@ -1,0 +1,160 @@
+const api = {
+  async getCampaigns() {
+    const response = await fetch('/api/campaigns');
+    return response.json();
+  },
+  async getLeads() {
+    const response = await fetch('/api/leads');
+    return response.json();
+  },
+  async getCalls() {
+    const response = await fetch('/api/calls');
+    return response.json();
+  },
+  async getAgents() {
+    const response = await fetch('/api/agents');
+    return response.json();
+  },
+  async createCampaign(data) {
+    const response = await fetch('/api/campaigns', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(data),
+    });
+    return response.json();
+  },
+  async createLead(data) {
+    const response = await fetch('/api/leads', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(data),
+    });
+    return response.json();
+  },
+  async createCall(data) {
+    const response = await fetch(`/api/agents/${data.agent_id}/call`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(data),
+    });
+    return response.json();
+  },
+};
+
+async function loadDashboard() {
+  const [campaigns, leads, calls, agents] = await Promise.all([
+    api.getCampaigns(),
+    api.getLeads(),
+    api.getCalls(),
+    api.getAgents(),
+  ]);
+
+  renderCampaigns(campaigns.campaigns || []);
+  renderLeads(leads.leads || []);
+  renderCalls(calls.calls || []);
+  renderAgents(agents.agents || []);
+}
+
+function renderCampaigns(campaigns) {
+  const section = document.getElementById('campaigns');
+  section.innerHTML = campaigns.length
+    ? campaigns.map(c => `
+      <div class="card">
+        <h3>${c.name}</h3>
+        <p><strong>Objective:</strong> ${c.objective}</p>
+        <p><strong>Audience:</strong> ${c.target_audience}</p>
+        <p><strong>Script:</strong> ${c.script}</p>
+      </div>
+    `).join('')
+    : '<p>No campaigns yet.</p>';
+}
+
+function renderLeads(leads) {
+  const section = document.getElementById('leads');
+  section.innerHTML = leads.length
+    ? leads.map(l => `
+      <div class="card">
+        <h3>${l.name}</h3>
+        <p>${l.company || 'No company'}</p>
+        <p>${l.phone}</p>
+        <p>Status: ${l.status}</p>
+      </div>
+    `).join('')
+    : '<p>No leads yet.</p>';
+}
+
+function renderCalls(calls) {
+  const section = document.getElementById('calls');
+  section.innerHTML = calls.length
+    ? calls.map(c => `
+      <div class="card">
+        <h3>Call ${c.id}</h3>
+        <p>Status: ${c.status}</p>
+        <p>Lead: ${c.lead_id}</p>
+        <p>Campaign: ${c.campaign_id}</p>
+        <p>Summary: ${c.summary}</p>
+      </div>
+    `).join('')
+    : '<p>No calls yet.</p>';
+}
+
+function renderAgents(agents) {
+  const section = document.getElementById('agents');
+  section.innerHTML = agents.length
+    ? agents.map(a => `
+      <div class="card">
+        <h3>${a.name}</h3>
+        <p>Voice: ${a.voice}</p>
+        <p>Model: ${a.model}</p>
+        <p>Language: ${a.language}</p>
+      </div>
+    `).join('')
+    : '<p>No agents yet.</p>';
+}
+
+document.getElementById('campaignForm').addEventListener('submit', async (event) => {
+  event.preventDefault();
+  const form = new FormData(event.target);
+  const payload = {
+    name: form.get('name'),
+    objective: form.get('objective'),
+    script: form.get('script'),
+    target_audience: form.get('target_audience') || 'SMB',
+    timezone: form.get('timezone') || 'UTC',
+  };
+  await api.createCampaign(payload);
+  event.target.reset();
+  await loadDashboard();
+});
+
+document.getElementById('leadForm').addEventListener('submit', async (event) => {
+  event.preventDefault();
+  const form = new FormData(event.target);
+  const payload = {
+    name: form.get('name'),
+    phone: form.get('phone'),
+    company: form.get('company') || '',
+    source: form.get('source') || 'manual',
+    priority: form.get('priority') || 'normal',
+  };
+  await api.createLead(payload);
+  event.target.reset();
+  await loadDashboard();
+});
+
+document.getElementById('callForm').addEventListener('submit', async (event) => {
+  event.preventDefault();
+  const form = new FormData(event.target);
+  const payload = {
+    campaign_id: form.get('campaign_id'),
+    agent_id: form.get('agent_id'),
+    lead_id: form.get('lead_id'),
+    call_type: form.get('call_type') || 'outbound',
+    notes: form.get('notes') || '',
+  };
+  await api.createCall(payload);
+  event.target.reset();
+  await loadDashboard();
+});
+
+loadDashboard();
